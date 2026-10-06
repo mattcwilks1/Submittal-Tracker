@@ -17,11 +17,18 @@
 
   function LocalBackend(getState, setStatus) {
     let ok = true;
-    const save = U.debounce(() => {
+    let dirty = false;
+    const saveNow = () => {
+      if (!dirty) return;
+      dirty = false;
       const s = getState();
       ok = U.lsSet(LS_KEY, { v: 1, savedAt: U.nowIso(), ...s });
       setStatus(ok ? 'saved' : 'error', ok ? '' : 'Browser storage is full or blocked. Download a backup from Settings.');
-    }, 250);
+    };
+    const save = U.debounce(saveNow, 250);
+    // Don't lose an edit made just before the tab closes or reloads.
+    window.addEventListener('pagehide', saveNow);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveNow(); });
 
     return {
       mode: 'local',
@@ -31,6 +38,7 @@
         return { projects: d.projects || [], submittals: d.submittals || [], templates: d.templates || [], settings: d.settings || {} };
       },
       write() {
+        dirty = true;
         setStatus('saving');
         save();
       },

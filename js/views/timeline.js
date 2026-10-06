@@ -14,6 +14,7 @@
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const SEG_LABEL = {
     prep: 'Preparation',
+    intake: 'Intake / fees, before routing',
     review: 'Agency review',
     late: 'Agency review, past due',
     turn: 'Comments with us / consultant',
@@ -263,7 +264,7 @@
   function legendHtml() {
     const sw = (cls, label) => `<span class="lg"><span class="lg-sw ${cls}"></span>${label}</span>`;
     return `<div class="g-legend" aria-label="Legend">
-      ${sw('g-prep', 'Prep')}${sw('g-review', 'Agency review')}${sw('g-late', 'Past due')}${sw('g-turn', 'With us / consultant')}
+      ${sw('g-prep', 'Prep')}${sw('g-intake', 'Intake')}${sw('g-review', 'Agency review')}${sw('g-late', 'Past due')}${sw('g-turn', 'With us / consultant')}
       ${sw('g-fc-review lg-fc', 'Forecast')}${sw('g-wait', 'Waiting on predecessor')}${sw('lg-plan', 'Target window')}${sw('lg-base', 'Baseline')}
       <span class="lg"><span class="lg-ms g-ms-fc"></span>Forecast approval</span><span class="lg"><span class="lg-ms g-ms-done"></span>Approved</span><span class="lg"><span class="lg-ms g-ms-late"></span>Late vs. target</span>
     </div>`;

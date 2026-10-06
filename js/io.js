@@ -9,13 +9,13 @@
     ['preparerFirm', 'Preparer Firm'], ['preparerContact', 'Preparer Contact'], ['trackingNo', 'Tracking No'],
     ['status', 'Status'], ['statusSince', 'Status Since'], ['ball', 'Ball in Court'], ['ballSince', 'Ball Since'], ['priority', 'Priority'],
     ['feeAmount', 'Fee Amount'], ['feesPaid', 'Fees Paid'], ['nextAction', 'Next Action'], ['nextActionDate', 'Next Action Date'],
-    ['planSubmit', 'Target Submittal'], ['planApproval', 'Target Approval'], ['plannedCycles', 'Planned Cycles'], ['approvedOn', 'Approved On'],
+    ['planSubmit', 'Target Submittal'], ['planApproval', 'Target Approval'], ['plannedCycles', 'Planned Cycles'], ['planReview', 'Review Days by Cycle'], ['planResub', 'Response Days by Cycle'], ['approvedOn', 'Approved On'],
     ['forecastApproval', 'Forecast Approval'], ['varianceDays', 'Days vs Target'], ['baselineApproval', 'Baseline Approval'], ['dependsOn', 'Starts After (IDs)'],
-    ['cycle', 'Cycle'], ['submitted', 'Date Submitted'], ['tat', 'Turnaround Days'], ['due', 'Due Back'], ['received', 'Comments Received'], ['summary', 'Comment Summary'],
+    ['cycle', 'Cycle'], ['submitted', 'Date Submitted'], ['routed', 'Date Routed'], ['tat', 'Turnaround Days'], ['due', 'Due Back'], ['received', 'Comments Received'], ['summary', 'Comment Summary'],
     ['firstSubmitted', 'First Submitted'], ['daysInStatus', 'Days in Status'], ['totalDays', 'Total Days'], ['overdueDays', 'Overdue Days'],
     ['links', 'Links'], ['notes', 'Notes'],
   ];
-  const DATE_FIELDS = new Set(['statusSince', 'ballSince', 'nextActionDate', 'submitted', 'due', 'received', 'planSubmit', 'planApproval', 'approvedOn']);
+  const DATE_FIELDS = new Set(['statusSince', 'ballSince', 'nextActionDate', 'submitted', 'due', 'received', 'planSubmit', 'planApproval', 'approvedOn', 'routed']);
 
   const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const ALIAS = Object.fromEntries(FIELDS.map(([k, l]) => [norm(l), k]).concat(FIELDS.map(([k]) => [norm(k), k])));
@@ -26,7 +26,7 @@
     dept: 'department', reviewdepartment: 'department',
     tracking: 'trackingNo', trackingnumber: 'trackingNo', permitno: 'trackingNo', permitnumber: 'trackingNo', planchecknumber: 'trackingNo', pcno: 'trackingNo',
     consultant: 'preparerFirm', preparer: 'preparerFirm', firm: 'preparerFirm', contact: 'preparerContact',
-    submitted: 'submitted', submitteddate: 'submitted', datesubmitted: 'submitted',
+    submitted: 'submitted', submitteddate: 'submitted', datesubmitted: 'submitted', routeddate: 'routed', daterouted: 'routed',
     turnaround: 'tat', tat: 'tat', reviewdays: 'tat',
     received: 'received', commentsreceiveddate: 'received', datecommentsreceived: 'received',
     comments: 'summary', commentsummary: 'summary',
@@ -63,7 +63,8 @@
       feeAmount: n(s.feeAmount), feesPaid: s.feesPaid, nextAction: s.nextAction, nextActionDate: s.nextActionDate,
       planSubmit: s.planSubmit || '', planApproval: s.planApproval || '', plannedCycles: s.plannedCycles ? n(s.plannedCycles) : '', approvedOn: s.approvedOn || '',
       forecastApproval: f.approval || '', varianceDays: f.variance == null ? '' : n(f.variance), baselineApproval: f.base ? f.base.approval || '' : '', dependsOn: (s.dependsOn || []).join('; '),
-      cycle: d.cycleN ? n(d.cycleN) : '', submitted: d.submitted, tat: d.cur ? n(d.cur.tat) : '', due: d.due, received: d.received, summary: d.cur ? d.cur.summary || '' : '',
+      cycle: d.cycleN ? n(d.cycleN) : '', submitted: d.submitted, routed: d.cur ? d.cur.routed || '' : '',
+      planReview: Sched.parseList(s.planReview).join(', '), planResub: Sched.parseList(s.planResub).join(', '), tat: d.cur ? n(d.cur.tat) : '', due: d.due, received: d.received, summary: d.cur ? d.cur.summary || '' : '',
       firstSubmitted: d.first, daysInStatus: n(d.daysInStatus), totalDays: n(d.totalDays), overdueDays: d.overdue ? n(d.overdue) : '',
       links: (s.links || []).map((l) => (l.label ? l.label + '|' : '') + l.url).join('; '), notes: s.notes,
     };
@@ -224,6 +225,8 @@
       const s = existing ? U.clone(existing) : M.newSubmittal({ log: [] });
       SIMPLE.forEach((k) => { if (o[k] !== undefined && o[k] !== '') s[k] = o[k]; });
       if (o.links) s.links = parseLinks(o.links);
+      if (o.planReview) s.planReview = Sched.parseList(o.planReview);
+      if (o.planResub) s.planResub = Sched.parseList(o.planResub);
       if (o.plannedCycles && !isNaN(+o.plannedCycles)) s.plannedCycles = Math.max(1, Math.round(+o.plannedCycles));
       if (o.dependsOn) s.dependsOn = o.dependsOn.split(/[;,\s]+/).filter((x) => x && x !== s.id && Store.submittal(x));
 
@@ -245,7 +248,7 @@
 
       // review cycle
       const n = o.cycle ? parseInt(o.cycle, 10) : NaN;
-      const touchesCycle = o.submitted || o.received || o.tat || o.summary || o.due || !isNaN(n);
+      const touchesCycle = o.submitted || o.routed || o.received || o.tat || o.summary || o.due || !isNaN(n);
       if (touchesCycle) {
         let c = !isNaN(n) ? s.cycles.find((x) => +x.n === n) : s.cycles[s.cycles.length - 1];
         if (!c) {
@@ -254,6 +257,7 @@
           s.cycles.sort((a, b) => a.n - b.n);
         }
         if (o.submitted) c.submitted = o.submitted;
+        if (o.routed) c.routed = o.routed;
         if (o.tat !== undefined && o.tat !== '' && !isNaN(+o.tat)) c.tat = +o.tat;
         if (o.received) c.received = o.received;
         if (o.summary) c.summary = o.summary;

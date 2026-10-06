@@ -215,6 +215,7 @@
       return `<tr data-cid="${c.id}" class="${isCur ? 'is-cur' : ''}">
         <th scope="row" data-label="Cycle"><span class="num">${U.ordinal(c.n)}</span>${isCur ? '<span class="cur-tag">current</span>' : ''}</th>
         <td data-label="Submitted"><input type="date" aria-label="Date submitted" data-cf="submitted" value="${U.esc(c.submitted || '')}"></td>
+        <td data-label="Routed (clock starts)"><input type="date" aria-label="Date routed for review" data-cf="routed" value="${U.esc(c.routed || '')}"></td>
         <td data-label="Turnaround"><input type="number" min="0" class="num-in" aria-label="Turnaround days" data-cf="tat" value="${U.esc(c.tat ?? '')}"></td>
         <td data-label="Due back"><div class="due-in"><input type="date" aria-label="Due back" data-cf="dueOverride" value="${U.esc(due)}"><span class="due-mode" data-due-mode>${c.dueOverride ? `<button class="link" data-act="due-auto" title="Go back to the calculated date">set · use calc</button>` : 'calc'}</span></div></td>
         <td data-label="Comments in"><input type="date" aria-label="Comments received" data-cf="received" value="${U.esc(c.received || '')}"></td>
@@ -223,8 +224,8 @@
         <td><button class="icon-btn" data-act="cycle-del" aria-label="Remove ${U.ordinal(c.n)} cycle">${UI.icon('x')}</button></td>
       </tr>`;
     }).join('');
-    return `<div class="sec-h"><h3>Review cycles</h3><span class="muted">The current (last) cycle drives status and due dates.</span></div>
-      ${s.cycles.length ? `<div class="table-wrap"><table class="grid grid-compact cycles"><thead><tr><th>Cycle</th><th>Submitted</th><th>TAT days</th><th>Due back</th><th>Comments in</th><th class="c-num">Review days</th><th>Comment summary</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">No review cycles yet. Mark it submitted to start the 1st cycle.</p>'}
+    return `<div class="sec-h"><h3>Review cycles</h3><span class="muted">The current (last) cycle drives status and due dates. Due back counts from the routed date when there is one.</span></div>
+      ${s.cycles.length ? `<div class="table-wrap"><table class="grid grid-compact cycles"><thead><tr><th>Cycle</th><th>Submitted</th><th title="Date accepted and routed for review. The review clock starts here; blank = submitted date.">Routed</th><th>TAT days</th><th>Due back</th><th>Comments in</th><th class="c-num">Review days</th><th>Comment summary</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">No review cycles yet. Mark it submitted to start the 1st cycle.</p>'}
       <div class="row-gap">
         <button class="btn btn-sm" data-act="${s.cycles.length && !cur.submitted ? 'submit' : s.cycles.length ? 'resubmit' : 'submit'}">${UI.icon('send')}${s.cycles.length && cur.submitted ? 'Log resubmittal today' : 'Mark submitted today'}</button>
         <button class="btn btn-sm btn-ghost" data-act="cycle-add">${UI.icon('plus')}Add cycle without a date</button>
@@ -259,6 +260,8 @@
         <label class="fld"><span>Target submittal</span><input type="date" id="dr-planSubmit" data-f="planSubmit" value="${U.esc(s.planSubmit || '')}"></label>
         <label class="fld"><span>Target approval${autoAppr && !s.planApproval ? ` <em>calculated: ${U.fmtD(autoAppr)}</em>` : ''}</span><input type="date" id="dr-planApproval" data-f="planApproval" value="${U.esc(s.planApproval || '')}"></label>
         <label class="fld"><span>Planned review cycles</span><input type="number" min="1" max="9" id="dr-plannedCycles" data-f="plannedCycles" value="${U.esc(s.plannedCycles || '')}" placeholder="${D.cycles} (default)"></label>
+        <label class="fld"><span>Review days by cycle <em>e.g. 35, 28, 28</em></span><input id="dr-planReview" data-f="planReview" data-list value="${U.esc(Sched.parseList(s.planReview).join(', '))}" placeholder="${U.esc(Store.state.settings.reviewDaysByCycle || String(Sched.tatOf(s)))}"></label>
+        <label class="fld"><span>Response days after each cycle <em>e.g. 21, 14</em></span><input id="dr-planResub" data-f="planResub" data-list value="${U.esc(Sched.parseList(s.planResub).join(', '))}" placeholder="${U.esc(Store.state.settings.resubDaysByCycle || String(D.resub))}"></label>
         ${done ? `<label class="fld"><span>Approved on</span><input type="date" id="dr-approvedOn" data-f="approvedOn" value="${U.esc(s.approvedOn || '')}"></label>` : ''}
       </div>
       <div class="fc-read" id="dr-fc">${forecastHtml(s)}</div>
@@ -291,8 +294,10 @@
           <label class="fld"><span>Target approval <em>blank = calculate</em></span><input type="date" id="pl-appr" value="${U.esc(one ? one.planApproval || '' : '')}"></label>
           <label class="fld"><span>Planned review cycles</span><input type="number" id="pl-cyc" min="1" max="9" placeholder="${D.cycles} (default)"></label>
           <label class="fld"><span>Stagger submittals <em>days apart, in list order</em></span><input type="number" id="pl-stag" min="0" max="90" value="0"></label>
+          <label class="fld"><span>Review days by cycle <em>e.g. 35, 28, 28</em></span><input id="pl-rev" placeholder="${U.esc(Store.state.settings.reviewDaysByCycle || 'Settings default')}"></label>
+          <label class="fld"><span>Response days after each cycle <em>e.g. 21, 14</em></span><input id="pl-resp" placeholder="${U.esc(Store.state.settings.resubDaysByCycle || 'Settings default')}"></label>
         </div>
-        <p class="muted">A calculated target approval = target submittal + planned cycles × review turnaround + ${D.resub} days to turn comments between cycles (Settings). Blank fields leave existing values alone.</p>
+        <p class="muted">A calculated target approval adds each cycle’s review days plus the response days between cycles to the target submittal date. Blank fields leave existing values alone.</p>
         <label class="chk"><input type="checkbox" id="pl-clear"> Clear targets instead</label>
       </form>`,
       foot: '<button class="btn" data-close>Cancel</button><button class="btn btn-primary" data-ok>Apply</button>',
@@ -304,15 +309,19 @@
           const appr = el.querySelector('#pl-appr').value;
           const cyc = el.querySelector('#pl-cyc').value;
           const stag = Math.max(0, parseInt(el.querySelector('#pl-stag').value, 10) || 0);
+          const rev = Sched.parseList(el.querySelector('#pl-rev').value);
+          const resp = Sched.parseList(el.querySelector('#pl-resp').value);
           Store.checkpoint('set targets');
           subs.forEach((s, i) => {
             const patch = {};
-            if (clear) Object.assign(patch, { planSubmit: '', planApproval: '', plannedCycles: '' });
+            if (clear) Object.assign(patch, { planSubmit: '', planApproval: '', plannedCycles: '', planReview: '', planResub: '' });
             else {
               if (sub0) patch.planSubmit = U.addDays(sub0, i * stag);
               if (appr) patch.planApproval = U.addDays(appr, i * stag);
               else if (sub0) patch.planApproval = '';
               if (cyc) patch.plannedCycles = Math.max(1, parseInt(cyc, 10) || 1);
+              if (rev.length) patch.planReview = rev;
+              if (resp.length) patch.planResub = resp;
             }
             M.update(Store.submittal(s.id), patch);
           });
@@ -437,7 +446,7 @@
     const active = document.activeElement;
     D.el.querySelectorAll('[data-f]').forEach((inp) => {
       if (inp === active) return;
-      const v = s[inp.dataset.f] ?? '';
+      const v = inp.dataset.list !== undefined ? Sched.parseList(s[inp.dataset.f]).join(', ') : s[inp.dataset.f] ?? '';
       if (inp.value !== String(v)) inp.value = v;
     });
     const cyc = D.el.querySelector('#dr-cycles');
@@ -576,6 +585,14 @@
         const v = t.value.trim ? (k === 'notes' ? t.value : t.value.trim()) : t.value;
         if (String(s[k] ?? '') === v) return;
         if (k === 'title' && !v) { t.value = s.title; return; }
+        if (t.dataset.list !== undefined) {
+          const list = Sched.parseList(v);
+          if (JSON.stringify(list) === JSON.stringify(Sched.parseList(s[k]))) { t.value = list.join(', '); return; }
+          M.update(s, { [k]: list.length ? list : '' });
+          t.value = list.join(', ');
+          flashSaved();
+          return;
+        }
         if (k === 'status') { App.setStatus(s, v); return; }
         const patch = { [k]: v };
         if (k === 'discipline' && !s.department && C.DEPT_FOR[v]) patch.department = C.DEPT_FOR[v];

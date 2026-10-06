@@ -54,8 +54,9 @@
   M.dueFor = (c) => {
     if (!c) return '';
     if (c.dueOverride) return c.dueOverride;
-    if (!c.submitted || c.tat === '' || c.tat == null || isNaN(+c.tat)) return '';
-    return Store.state.settings.bizDays ? U.addBizDays(c.submitted, +c.tat) : U.addDays(c.submitted, +c.tat);
+    const start = c.routed && c.routed > (c.submitted || '') ? c.routed : c.submitted;
+    if (!start || c.tat === '' || c.tat == null || isNaN(+c.tat)) return '';
+    return Store.state.settings.bizDays ? U.addBizDays(start, +c.tat) : U.addDays(start, +c.tat);
   };
 
   M.cycleLabel = (n) => (n ? U.ordinal(n) : '—');
@@ -156,7 +157,9 @@
       id: U.uid('c'),
       n,
       submitted: submitted || '',
-      tat: last && last.tat !== '' && last.tat != null ? last.tat : Store.state.settings.defaultTat,
+      tat: window.Sched && (next.planReview || Store.state.settings.reviewDaysByCycle) ? Sched.reviewFor(next, n)
+        : last && last.tat !== '' && last.tat != null ? last.tat : Store.state.settings.defaultTat,
+      routed: '',
       dueOverride: '',
       received: '',
       summary: '',

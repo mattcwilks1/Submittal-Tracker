@@ -20,6 +20,8 @@
             <label class="fld"><span>Count turnaround in</span><select id="set-biz" data-s="bizDays">${UI.options([{ value: 'false', label: 'Calendar days' }, { value: 'true', label: 'Business days (Mon–Fri)' }], String(!!s.bizDays))}</select></label>
             <label class="fld"><span>Planned review cycles <em>default per submittal</em></span><input id="set-pcyc" data-s="planCycles" type="number" min="1" max="9" value="${U.esc(s.planCycles)}"></label>
             <label class="fld"><span>Resubmittal prep <em>days to turn comments around</em></span><input id="set-resub" data-s="resubDays" type="number" min="0" max="365" value="${U.esc(s.resubDays)}"></label>
+            <label class="fld"><span>Review days by cycle <em>optional, e.g. 35, 28, 28</em></span><input id="set-revlist" data-s="reviewDaysByCycle" value="${U.esc(s.reviewDaysByCycle || '')}" placeholder="Use default turnaround"></label>
+            <label class="fld"><span>Response days after each cycle <em>optional, e.g. 21, 14</em></span><input id="set-resplist" data-s="resubDaysByCycle" value="${U.esc(s.resubDaysByCycle || '')}" placeholder="Use resubmittal prep"></label>
             <label class="fld"><span>Prep before 1st submittal <em>days, when no target is set</em></span><input id="set-prep" data-s="prepDays" type="number" min="0" max="365" value="${U.esc(s.prepDays)}"></label>
             <label class="fld"><span>Theme</span><select id="set-theme" data-p="theme">${UI.options([{ value: 'system', label: 'Match system' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }], UI.prefs.theme)}</select></label>
           </form>
@@ -88,6 +90,7 @@
           t.value = v;
         }
         if (k === 'bizDays') v = v === 'true';
+        if (k === 'reviewDaysByCycle' || k === 'resubDaysByCycle') { v = Sched.parseList(v).join(', '); t.value = v; }
         Store.putSettings({ [k]: v });
         UI.toast('Saved');
       });

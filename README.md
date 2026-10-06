@@ -48,6 +48,8 @@ Each submittal can carry:
 
 - **Target submittal** and **Target approval** dates (your plan). If you leave target approval blank, it is calculated: target submittal + planned cycles × turnaround + resubmittal prep between cycles.
 - **Planned review cycles**: how many rounds you expect (default 2).
+- **Review days by cycle** (for example `35, 28, 28`) and **Response days after each cycle** (for example `21, 14`). These are optional per submittal; defaults can be set in Settings.
+- A **Routed** date on each review cycle. The due-back clock starts when the city routes the plans, not on the submittal date. The time between submittal and routing shows as intake on the timeline.
 - **Starts after**: predecessor submittals (finish-to-start). For example, the Final Map can wait for Rough Grading approval. The app blocks links that would create a loop.
 
 The **forecast** is recalculated from actual review dates:
