@@ -6,6 +6,7 @@
     dashboard: { view: () => DashboardView, nav: 'dashboard' },
     table: { view: () => TableView, nav: 'table' },
     board: { view: () => BoardView, nav: 'board' },
+    timeline: { view: () => TimelineView, nav: 'timeline' },
     projects: { view: () => ProjectsView, nav: 'projects' },
     project: { view: () => ProjectView, nav: 'projects' },
     templates: { view: () => TemplatesView, nav: 'templates' },

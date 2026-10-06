@@ -12,12 +12,15 @@
     return `<div class="view-h"><h1>Settings</h1><p class="view-sub">Thresholds and defaults apply everywhere. Theme and table layout are remembered per browser.</p></div>
       <div class="settings">
         <section class="panel">
-          <header class="panel-h"><h2>Flags & defaults</h2></header>
+          <header class="panel-h"><h2>Flags, defaults & forecasting</h2></header>
           <form class="form-grid" id="set-form">
             <label class="fld"><span>Your name <em>default internal lead</em></span><input id="set-name" data-s="myName" value="${U.esc(s.myName || '')}" placeholder="e.g. Matt"></label>
             <label class="fld"><span>Stale flag after <em>days in our or consultant’s court</em></span><input id="set-stale" data-s="staleDays" type="number" min="1" max="365" value="${U.esc(s.staleDays)}"></label>
             <label class="fld"><span>Default review turnaround <em>days, for new cycles</em></span><input id="set-tat" data-s="defaultTat" type="number" min="0" max="365" value="${U.esc(s.defaultTat)}"></label>
             <label class="fld"><span>Count turnaround in</span><select id="set-biz" data-s="bizDays">${UI.options([{ value: 'false', label: 'Calendar days' }, { value: 'true', label: 'Business days (Mon–Fri)' }], String(!!s.bizDays))}</select></label>
+            <label class="fld"><span>Planned review cycles <em>default per submittal</em></span><input id="set-pcyc" data-s="planCycles" type="number" min="1" max="9" value="${U.esc(s.planCycles)}"></label>
+            <label class="fld"><span>Resubmittal prep <em>days to turn comments around</em></span><input id="set-resub" data-s="resubDays" type="number" min="0" max="365" value="${U.esc(s.resubDays)}"></label>
+            <label class="fld"><span>Prep before 1st submittal <em>days, when no target is set</em></span><input id="set-prep" data-s="prepDays" type="number" min="0" max="365" value="${U.esc(s.prepDays)}"></label>
             <label class="fld"><span>Theme</span><select id="set-theme" data-p="theme">${UI.options([{ value: 'system', label: 'Match system' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }], UI.prefs.theme)}</select></label>
           </form>
         </section>
@@ -80,8 +83,8 @@
         const k = t.dataset.s;
         if (!k) return;
         let v = t.value;
-        if (k === 'staleDays' || k === 'defaultTat') {
-          v = Math.max(k === 'staleDays' ? 1 : 0, parseInt(v, 10) || 0);
+        if (['staleDays', 'defaultTat', 'planCycles', 'resubDays', 'prepDays'].includes(k)) {
+          v = Math.max(k === 'staleDays' || k === 'planCycles' ? 1 : 0, parseInt(v, 10) || 0);
           t.value = v;
         }
         if (k === 'bizDays') v = v === 'true';

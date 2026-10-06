@@ -20,6 +20,7 @@
     { key: 'agency', label: 'With agency', test: (s, d) => d.withAgency },
     { key: 'stale', label: 'Stale', test: (s, d) => d.stale, tone: 'stale' },
     { key: 'due7', label: 'Due back ≤ 7 days', test: (s, d) => d.dueIn != null && d.dueIn >= 0 && d.dueIn <= 7 },
+    { key: 'late', label: 'Forecast late', test: (s) => { const x = Sched.get(s); return x.variance != null && x.variance > 0 && !x.approvalActual; }, tone: 'over' },
     { key: 'next7', label: 'Next actions ≤ 7 days', test: (s, d) => d.nextDue != null && d.nextDue <= 7 },
     { key: 'done', label: 'Approved / closed', test: (s, d) => d.done },
   ];

@@ -11,7 +11,7 @@
   const LS_KEY = 'submittal-tracker:data:v1';
   const COLLECTIONS = ['projects', 'submittals', 'templates'];
 
-  const DEFAULT_SETTINGS = { staleDays: 7, defaultTat: 21, bizDays: false, myName: '' };
+  const DEFAULT_SETTINGS = { staleDays: 7, defaultTat: 21, bizDays: false, myName: '', planCycles: 2, resubDays: 14, prepDays: 14 };
 
   /* ---------------- Local backend ---------------- */
 
@@ -149,6 +149,7 @@
   const Store = {
     state: { projects: [], submittals: [], templates: [], settings: { ...DEFAULT_SETTINGS } },
     mode: 'local',
+    rev: 0,
     status: 'saved',
     statusMsg: '',
     firstRun: false,
@@ -258,6 +259,7 @@
 
   let emitQueued = false;
   Store.emit = () => {
+    Store.rev++; // invalidates schedule caches synchronously
     if (emitQueued) return;
     emitQueued = true;
     requestAnimationFrame(() => {

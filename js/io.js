@@ -9,11 +9,13 @@
     ['preparerFirm', 'Preparer Firm'], ['preparerContact', 'Preparer Contact'], ['trackingNo', 'Tracking No'],
     ['status', 'Status'], ['statusSince', 'Status Since'], ['ball', 'Ball in Court'], ['ballSince', 'Ball Since'], ['priority', 'Priority'],
     ['feeAmount', 'Fee Amount'], ['feesPaid', 'Fees Paid'], ['nextAction', 'Next Action'], ['nextActionDate', 'Next Action Date'],
+    ['planSubmit', 'Target Submittal'], ['planApproval', 'Target Approval'], ['plannedCycles', 'Planned Cycles'], ['approvedOn', 'Approved On'],
+    ['forecastApproval', 'Forecast Approval'], ['varianceDays', 'Days vs Target'], ['baselineApproval', 'Baseline Approval'], ['dependsOn', 'Starts After (IDs)'],
     ['cycle', 'Cycle'], ['submitted', 'Date Submitted'], ['tat', 'Turnaround Days'], ['due', 'Due Back'], ['received', 'Comments Received'], ['summary', 'Comment Summary'],
     ['firstSubmitted', 'First Submitted'], ['daysInStatus', 'Days in Status'], ['totalDays', 'Total Days'], ['overdueDays', 'Overdue Days'],
     ['links', 'Links'], ['notes', 'Notes'],
   ];
-  const DATE_FIELDS = new Set(['statusSince', 'ballSince', 'nextActionDate', 'submitted', 'due', 'received']);
+  const DATE_FIELDS = new Set(['statusSince', 'ballSince', 'nextActionDate', 'submitted', 'due', 'received', 'planSubmit', 'planApproval', 'approvedOn']);
 
   const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const ALIAS = Object.fromEntries(FIELDS.map(([k, l]) => [norm(l), k]).concat(FIELDS.map(([k]) => [norm(k), k])));
@@ -32,6 +34,8 @@
     casenumber: 'caseNumbers', cases: 'caseNumbers', mapnumbers: 'caseNumbers',
     fees: 'feesPaid', fee: 'feeAmount',
     duebackdate: 'due', duedate: 'due',
+    targetsubmittaldate: 'planSubmit', plannedsubmittal: 'planSubmit', targetapprovaldate: 'planApproval', plannedapproval: 'planApproval', approvaldate: 'approvedOn', dateapproved: 'approvedOn',
+    predecessors: 'dependsOn', startsafter: 'dependsOn',
   });
 
   const STATUS_ALIAS = Object.fromEntries(C.STATUS_KEYS.map((k) => [norm(k), k]));
@@ -49,6 +53,7 @@
     const d = M.derive(s);
     const w = M.where(s);
     const p = w.project;
+    const f = Sched.get(s);
     const n = (v) => (forXlsx && v !== '' && v != null && !isNaN(+v) ? +v : v ?? '');
     const v = {
       id: s.id, project: w.projectName, caseNumbers: p ? p.caseNumbers.join(', ') : '', jurisdiction: p ? p.jurisdiction : '', phase: w.phaseName, package: w.pkgName,
@@ -56,6 +61,8 @@
       preparerFirm: s.preparerFirm, preparerContact: s.preparerContact, trackingNo: s.trackingNo,
       status: s.status, statusSince: s.statusSince, ball: s.ball, ballSince: s.ballSince, priority: s.priority,
       feeAmount: n(s.feeAmount), feesPaid: s.feesPaid, nextAction: s.nextAction, nextActionDate: s.nextActionDate,
+      planSubmit: s.planSubmit || '', planApproval: s.planApproval || '', plannedCycles: s.plannedCycles ? n(s.plannedCycles) : '', approvedOn: s.approvedOn || '',
+      forecastApproval: f.approval || '', varianceDays: f.variance == null ? '' : n(f.variance), baselineApproval: f.base ? f.base.approval || '' : '', dependsOn: (s.dependsOn || []).join('; '),
       cycle: d.cycleN ? n(d.cycleN) : '', submitted: d.submitted, tat: d.cur ? n(d.cur.tat) : '', due: d.due, received: d.received, summary: d.cur ? d.cur.summary || '' : '',
       firstSubmitted: d.first, daysInStatus: n(d.daysInStatus), totalDays: n(d.totalDays), overdueDays: d.overdue ? n(d.overdue) : '',
       links: (s.links || []).map((l) => (l.label ? l.label + '|' : '') + l.url).join('; '), notes: s.notes,
@@ -210,13 +217,15 @@
       }
       return p;
     };
-    const SIMPLE = ['title', 'discipline', 'agency', 'department', 'reviewer', 'preparerFirm', 'preparerContact', 'trackingNo', 'priority', 'feeAmount', 'feesPaid', 'nextAction', 'nextActionDate', 'notes'];
+    const SIMPLE = ['title', 'discipline', 'agency', 'department', 'reviewer', 'preparerFirm', 'preparerContact', 'trackingNo', 'priority', 'feeAmount', 'feesPaid', 'nextAction', 'nextActionDate', 'notes', 'planSubmit', 'planApproval', 'approvedOn'];
 
     plan.items.forEach(({ o, existing }) => {
       const today = U.today();
       const s = existing ? U.clone(existing) : M.newSubmittal({ log: [] });
       SIMPLE.forEach((k) => { if (o[k] !== undefined && o[k] !== '') s[k] = o[k]; });
       if (o.links) s.links = parseLinks(o.links);
+      if (o.plannedCycles && !isNaN(+o.plannedCycles)) s.plannedCycles = Math.max(1, Math.round(+o.plannedCycles));
+      if (o.dependsOn) s.dependsOn = o.dependsOn.split(/[;,\s]+/).filter((x) => x && x !== s.id && Store.submittal(x));
 
       let moved = false;
       if (o.project) {

@@ -43,6 +43,15 @@
       key: 'due', label: 'Due back', def: true, sort: (s, d) => (d.withAgency ? d.due : d.done ? '9999-12-31' : '9999-01-01'),
       td: (s, d) => (d.withAgency ? UI.dateCell(d.due, d.overdue ? 'is-over' : '') : d.received ? `<span class="muted" title="Comments received ${U.esc(U.fmtLong(d.received))}">in ${U.fmtD(d.received)}</span>` : '<span class="muted">—</span>'),
     },
+    {
+      key: 'forecast', label: 'Approval forecast', def: true, sort: (s) => { const f = Sched.get(s); return f.approval || '9999'; },
+      td: (s) => {
+        const f = Sched.get(s);
+        if (!f.approval) return f.hold ? '<span class="muted">On hold</span>' : EMPTY;
+        return `<div class="cell-2"><span>${f.approvalActual ? '✓ ' : ''}${U.fmtD(f.approval)}</span>${f.plan.approval ? `<span>${Sched.varHtml(f.variance)}</span>` : ''}</div>`;
+      },
+    },
+    { key: 'target', label: 'Target approval', sort: (s) => Sched.plan(s).approval, td: (s) => { const p = Sched.plan(s); return p.approval ? `<span class="${p.auto ? 'muted' : ''}">${U.fmtD(p.approval)}</span>` : EMPTY; } },
     { key: 'total', label: 'Total days', def: true, cls: 'c-num', sort: (s, d) => d.totalDays, td: (s, d) => num(d.totalDays) },
     {
       key: 'next', label: 'Next action', def: true, sort: (s) => s.nextActionDate || (s.nextAction ? '9999' : ''),
@@ -185,6 +194,7 @@
       <label class="inline-sel">Court<select id="bulk-ball" data-bulk="ball">${UI.options(C.BALL, '', 'Set…')}</select></label>
       <label class="inline-sel">Priority<select id="bulk-pri" data-bulk="priority">${UI.options(C.PRIORITY, '', 'Set…')}</select></label>
       <button class="btn btn-sm" data-act="bulk-move">Move to phase / package…</button>
+      <button class="btn btn-sm" data-act="bulk-plan">Set targets…</button>
       <button class="btn btn-sm" data-act="bulk-resubmit" title="Start a new review cycle today for each selected item">Log resubmittal</button>
       <button class="btn btn-sm" data-act="bulk-dup">Duplicate</button>
       <button class="btn btn-sm btn-danger-ghost" data-act="bulk-delete">Delete</button>
@@ -279,6 +289,7 @@
       if (act === 'new') { App.quickAdd(); return; }
       if (act === 'bulk-clear') { T.sel.clear(); view.refresh(root); return; }
       if (act === 'bulk-move') { bulkMove(); return; }
+      if (act === 'bulk-plan') { Forms.planDialog(Array.from(T.sel)); return; }
       if (act === 'bulk-resubmit') {
         Store.checkpoint('bulk resubmittal');
         T.sel.forEach((id) => { const s = Store.submittal(id); if (s) M.logResubmittal(s); });

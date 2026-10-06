@@ -31,8 +31,36 @@ Project → Phase → Package → Submittal → Review cycles
 - **Dashboard:** counts by status, overdue reviews, items in your court and the consultant's, stale items, reviews due back this week and next, upcoming next actions, and progress by project.
 - **Submittals (table):** search, filters, quick-filter chips, grouping (project, phase, package, agency, status, ball in court, discipline), sortable columns and a column picker. Select rows to bulk-edit status, ball in court or priority, move them to a phase or package, log resubmittals, duplicate or delete.
 - **Board:** a kanban by status. Drag a card to change its status.
+- **Timeline:** a Gantt chart by Project, then Phase, then Package, then Submittal, with a red line at today. Each row shows:
+  - **Actual history** as solid bars: prep (gray), agency review (blue), past-due review (red), and time with us or the consultant (amber).
+  - **Forecast** as hatched bars, running to an approval diamond (green once approved, red outline if later than target).
+  - **Target window** as a thin bar underneath. Drag it to move the dates, or drag its end to change only the target approval.
+  - **Baseline** as a gray line. Use **Baseline…** to freeze the current plan so you can measure slip later.
+  - **Summary rows** that roll up the date span, % approved and the latest target.
+
+  Zoom by days, weeks, months or quarters. You can also show only items forecast later than their target, or only items that have slipped against the baseline.
 - **Projects:** each project shows its phases, then packages, then submittals in collapsible sections, with % approved per phase and per package. Packages can be duplicated, saved as templates or filled from a template.
 - **Templates:** seven built-in package templates (Standard Plan Check Set, Rough Grading 1st Submittal, Wet Utility Plans, Dry Utility Design, Final Map Package, Bonds & Agreements, Entitlement Application). You can also save your own.
+
+## Scheduling and forecasting
+
+Each submittal can carry:
+
+- **Target submittal** and **Target approval** dates (your plan). If you leave target approval blank, it is calculated: target submittal + planned cycles × turnaround + resubmittal prep between cycles.
+- **Planned review cycles**: how many rounds you expect (default 2).
+- **Starts after**: predecessor submittals (finish-to-start). For example, the Final Map can wait for Rough Grading approval. The app blocks links that would create a loop.
+
+The **forecast** is recalculated from actual review dates:
+
+| Where it is now | Forecast |
+| --- | --- |
+| With the agency | Comes back on its due-back date, or today if overdue. Then a resubmittal prep gap and another review for each planned cycle left. |
+| Comments back with us or the consultant | Resubmitted after the resubmittal prep days (or today if that has passed). Then reviews for the remaining planned cycles. |
+| Not yet submitted | Submitted on the target submittal date (or today + prep days, or when predecessors are approved, whichever is later). Then the planned cycles. |
+| Approved | Uses the actual approval date. |
+| On hold | No forecast. |
+
+The table's **Approval forecast** column, the **Forecast late** quick filter, dashboard panels, phase headers and project stats all use the same forecast. Set targets one at a time in the submittal editor, for several selected rows (**Set targets…** in the bulk bar), or for a whole package from its ⋯ menu. Use the stagger option there to space submittals a few days apart. Planned cycles, resubmittal prep days and default prep time are in Settings.
 
 ## Flags and aging
 
@@ -65,6 +93,7 @@ Most destructive or bulk actions can be undone from the toast that appears after
 | --- | --- |
 | `js/store.js` | State, persistence (local storage or artifact database), undo |
 | `js/model.js` | Derived dates and flags, review-cycle rules, duplication, templates |
+| `js/schedule.js` | Targets, forecast to approval, baseline variance, predecessors |
 | `js/constants.js` | Statuses, disciplines, agencies, phases, built-in templates, starter projects |
 | `js/io.js` | CSV/XLSX/JSON import and export |
 | `js/xlsx.js` | Dependency-free .xlsx writer |

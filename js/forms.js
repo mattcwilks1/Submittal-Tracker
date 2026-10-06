@@ -231,6 +231,100 @@
       </div>`;
   }
 
+  function forecastHtml(s) {
+    const f = Sched.get(s);
+    const parts = [];
+    if (f.approvalActual) parts.push(`<span>Approved <b>${U.fmtLong(f.approval)}</b></span>`);
+    else if (f.hold) parts.push('<span>On hold: no forecast until it resumes.</span>');
+    else {
+      if (!M.derive(s).first && f.fcSubmit) parts.push(`<span>Forecast submittal <b>${U.fmtD(f.fcSubmit)}</b></span>`);
+      if (f.approval) parts.push(`<span>Forecast approval <b>${U.fmtLong(f.approval)}</b></span>`);
+    }
+    if (f.plan.approval) parts.push(`<span>vs. target ${U.fmtD(f.plan.approval)}: ${Sched.varHtml(f.variance)}</span>`);
+    if (f.base && f.base.approval) parts.push(`<span>vs. baseline ${U.fmtD(f.base.approval)}: ${Sched.varHtml(f.baseVar)}</span>`);
+    if (f.waitingOn) parts.push(`<span class="txt-stale">Waiting on ${U.esc(f.waitingOn.join(', '))}</span>`);
+    return parts.join('');
+  }
+
+  function scheduleHtml(s) {
+    const D = Sched.defaults();
+    const autoAppr = Sched.autoApproval(s, s.planSubmit);
+    const done = C.DONE.includes(s.status);
+    const deps = (s.dependsOn || []).map(Store.submittal).filter(Boolean);
+    const candidates = Store.state.submittals
+      .filter((x) => x.projectId === s.projectId && x.id !== s.id && !(s.dependsOn || []).includes(x.id))
+      .sort(U.byKey('title'));
+    return `<div class="sec-h"><h3>Schedule</h3><span class="muted">Targets are your plan. The forecast updates as review dates come in.</span></div>
+      <div class="form-grid g3">
+        <label class="fld"><span>Target submittal</span><input type="date" id="dr-planSubmit" data-f="planSubmit" value="${U.esc(s.planSubmit || '')}"></label>
+        <label class="fld"><span>Target approval${autoAppr && !s.planApproval ? ` <em>calculated: ${U.fmtD(autoAppr)}</em>` : ''}</span><input type="date" id="dr-planApproval" data-f="planApproval" value="${U.esc(s.planApproval || '')}"></label>
+        <label class="fld"><span>Planned review cycles</span><input type="number" min="1" max="9" id="dr-plannedCycles" data-f="plannedCycles" value="${U.esc(s.plannedCycles || '')}" placeholder="${D.cycles} (default)"></label>
+        ${done ? `<label class="fld"><span>Approved on</span><input type="date" id="dr-approvedOn" data-f="approvedOn" value="${U.esc(s.approvedOn || '')}"></label>` : ''}
+      </div>
+      <div class="fc-read" id="dr-fc">${forecastHtml(s)}</div>
+      <div class="deps">
+        <span class="deps-l">Starts after</span>
+        ${deps.map((x) => `<span class="dep-chip">${U.esc(x.title)}<button class="icon-btn" data-act="dep-del" data-dep="${x.id}" aria-label="Remove ${U.esc(x.title)}">${UI.icon('x')}</button></span>`).join('')}
+        ${candidates.length ? `<select id="dr-dep-add" aria-label="Add a submittal this one must wait for"><option value="">${deps.length ? 'Add another…' : 'Nothing. Add a predecessor…'}</option>${candidates.map((x) => `<option value="${x.id}">${U.esc(x.title)} (${U.esc(M.where(x).pkgName || M.where(x).phaseName)})</option>`).join('')}</select>` : '<span class="muted">No other submittals in this project.</span>'}
+      </div>`;
+  }
+
+  const dependsOnPath = (fromId, toId, seen = new Set()) => {
+    if (fromId === toId) return true;
+    if (seen.has(fromId)) return false;
+    seen.add(fromId);
+    const s = Store.submittal(fromId);
+    return !!s && (s.dependsOn || []).some((x) => dependsOnPath(x, toId, seen));
+  };
+
+  /** Set target dates / planned cycles on many submittals at once. */
+  Forms.planDialog = (ids, title) => {
+    const subs = ids.map(Store.submittal).filter(Boolean);
+    if (!subs.length) return;
+    const one = subs.length === 1 ? subs[0] : null;
+    const D = Sched.defaults();
+    UI.modal({
+      title: title || 'Set targets for ' + U.plural(subs.length, 'submittal'),
+      body: `<form class="stack" id="plan-form">
+        <div class="form-grid">
+          <label class="fld"><span>Target submittal</span><input type="date" id="pl-sub" value="${U.esc(one ? one.planSubmit || '' : '')}"></label>
+          <label class="fld"><span>Target approval <em>blank = calculate</em></span><input type="date" id="pl-appr" value="${U.esc(one ? one.planApproval || '' : '')}"></label>
+          <label class="fld"><span>Planned review cycles</span><input type="number" id="pl-cyc" min="1" max="9" placeholder="${D.cycles} (default)"></label>
+          <label class="fld"><span>Stagger submittals <em>days apart, in list order</em></span><input type="number" id="pl-stag" min="0" max="90" value="0"></label>
+        </div>
+        <p class="muted">A calculated target approval = target submittal + planned cycles × review turnaround + ${D.resub} days to turn comments between cycles (Settings). Blank fields leave existing values alone.</p>
+        <label class="chk"><input type="checkbox" id="pl-clear"> Clear targets instead</label>
+      </form>`,
+      foot: '<button class="btn" data-close>Cancel</button><button class="btn btn-primary" data-ok>Apply</button>',
+      onMount(el, api) {
+        const go = (e) => {
+          e && e.preventDefault();
+          const clear = el.querySelector('#pl-clear').checked;
+          const sub0 = el.querySelector('#pl-sub').value;
+          const appr = el.querySelector('#pl-appr').value;
+          const cyc = el.querySelector('#pl-cyc').value;
+          const stag = Math.max(0, parseInt(el.querySelector('#pl-stag').value, 10) || 0);
+          Store.checkpoint('set targets');
+          subs.forEach((s, i) => {
+            const patch = {};
+            if (clear) Object.assign(patch, { planSubmit: '', planApproval: '', plannedCycles: '' });
+            else {
+              if (sub0) patch.planSubmit = U.addDays(sub0, i * stag);
+              if (appr) patch.planApproval = U.addDays(appr, i * stag);
+              else if (sub0) patch.planApproval = '';
+              if (cyc) patch.plannedCycles = Math.max(1, parseInt(cyc, 10) || 1);
+            }
+            M.update(Store.submittal(s.id), patch);
+          });
+          api.close();
+          UI.undoToast((clear ? 'Cleared targets on ' : 'Set targets on ') + U.plural(subs.length, 'submittal'));
+        };
+        el.querySelector('[data-ok]').addEventListener('click', go);
+        el.querySelector('#plan-form').addEventListener('submit', go);
+      },
+    });
+  };
+
   function linksHtml(s) {
     return `<div class="sec-h"><h3>Links to files</h3><span class="muted">Plan sets, comment letters, folders</span></div>
       <ul class="links">${(s.links || []).map((l, i) => {
@@ -267,6 +361,7 @@
           ${f('nextActionDate', 'Next action date', { type: 'date' })}
         </div>
       </section>
+      <section class="dr-sec" id="dr-sched">${scheduleHtml(s)}</section>
       <section class="dr-sec" id="dr-cycles">${cyclesHtml(s)}</section>
       <section class="dr-sec">
         <div class="sec-h"><h3>Details</h3></div>
@@ -364,6 +459,9 @@
         });
       });
     }
+    const sched = D.el.querySelector('#dr-sched');
+    if (!sched.contains(active)) sched.innerHTML = scheduleHtml(s);
+    else sched.querySelector('#dr-fc').innerHTML = forecastHtml(s);
     const links = D.el.querySelector('#dr-links');
     if (!links.contains(active)) links.innerHTML = linksHtml(s);
     const logEl = D.el.querySelector('#dr-log');
@@ -415,6 +513,11 @@
         return;
       }
       if (act === 'cycle-add') { M.addCycle(s, ''); return; }
+      if (act === 'dep-del') {
+        const dep = b.dataset.dep;
+        M.update(s, { dependsOn: (s.dependsOn || []).filter((x) => x !== dep) }, 'Removed predecessor');
+        return;
+      }
       if (act === 'due-auto') {
         const cid = b.closest('tr').dataset.cid;
         M.setCycle(s, cid, { dueOverride: '' });
@@ -460,6 +563,14 @@
       const t = e.target;
       const s = Store.submittal(D.id);
       if (!s) return;
+      if (t.id === 'dr-dep-add') {
+        const dep = t.value;
+        if (!dep) return;
+        if (dependsOnPath(dep, s.id)) { UI.toast('That would create a loop: it already waits on this submittal.', { error: true }); t.value = ''; return; }
+        M.update(s, { dependsOn: (s.dependsOn || []).concat(dep) }, 'Starts after ' + (Store.submittal(dep) || {}).title);
+        flashSaved();
+        return;
+      }
       if (t.dataset.f) {
         const k = t.dataset.f;
         const v = t.value.trim ? (k === 'notes' ? t.value : t.value.trim()) : t.value;

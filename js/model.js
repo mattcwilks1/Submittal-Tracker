@@ -106,6 +106,10 @@
       if (!patch.statusSince) next.statusSince = today;
       addLog(next, 'Status: ' + s.status + ' → ' + patch.status);
     }
+    const wasDone = C.DONE.includes(s.status);
+    const isDone = C.DONE.includes(next.status);
+    if (isDone && !wasDone && !next.approvedOn) next.approvedOn = patch.statusSince || today;
+    if (!isDone && wasDone && patch.status) next.approvedOn = '';
     if (patch.ball && patch.ball !== s.ball) {
       if (!patch.ballSince) next.ballSince = today;
       addLog(next, 'Ball in court: ' + s.ball + ' → ' + patch.ball);

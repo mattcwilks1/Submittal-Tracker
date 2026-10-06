@@ -77,10 +77,12 @@
     const pkgIds = new Set(ph.packages.map((k) => k.id));
     const loose = list.filter((s) => !pkgIds.has(s.packageId));
     const over = list.filter((s) => M.derive(s).overdue).length;
+    const roll = Sched.rollup(list);
     return `<section class="phase ${collapsed ? 'is-collapsed' : ''}" data-phase="${ph.id}">
       <header class="phase-h">
         <button class="grp-toggle" data-collapse="${ck}" aria-expanded="${!collapsed}">${UI.icon('chev', 'ic-chev')}<span class="phase-i">${i + 1}</span><h2>${U.esc(ph.name)}</h2></button>
         <span class="grp-meta">${U.plural(ph.packages.length, 'package')} · ${U.plural(list.length, 'submittal')}${over ? ` · <span class="txt-over">${over} overdue</span>` : ''}</span>
+        ${roll.forecast ? `<span class="phase-fc" title="Latest forecast approval in this phase">${roll.done ? 'Done' : 'Forecast'} ${U.fmtD(roll.forecast)}${roll.target ? ` · target ${U.fmtD(roll.target)} ${Sched.varHtml(roll.variance, true)}` : ''}</span>` : ''}
         <span class="phase-prog">${list.length ? UI.progress(pr, 'approved') : '<span class="muted">—</span>'}</span>
         <span class="pkg-actions">
           <button class="btn btn-sm" data-act="phase-add-pkg">${UI.icon('plus')}Package</button>
@@ -112,6 +114,7 @@
         </div>
         <div class="proj-actions">
           <button class="btn btn-primary" data-act="proj-add-sub">${UI.icon('plus')}New submittal</button>
+          <button class="btn" data-act="proj-timeline">Timeline</button>
           <button class="btn" data-act="edit-project">${UI.icon('edit')}Edit</button>
           <button class="icon-btn" data-act="proj-menu" aria-label="Project actions">${UI.icon('more')}</button>
         </div>
@@ -122,6 +125,7 @@
         ${stat('With agency', ds.filter(([, d]) => d.withAgency).length)}
         ${stat('Overdue', ds.filter(([, d]) => d.overdue).length, ds.some(([, d]) => d.overdue) ? 'txt-over' : '')}
         ${stat('My court', ds.filter(([s, d]) => s.ball === 'Us' && !d.done).length)}
+        ${(() => { const r = Sched.rollup(subs); return r.forecast ? `<div><dt>${r.done ? 'Completed' : 'Forecast complete'}</dt><dd class="num">${U.fmtD(r.forecast)}${r.target ? ' ' + Sched.varHtml(r.variance, true) : ''}</dd></div>` : ''; })()}
         <div class="stat-prog"><dt>Approved</dt><dd>${UI.progress(pr)}</dd></div>
       </dl>
       <div class="proj-tools"><button class="btn btn-ghost btn-sm" data-act="expand-all">Expand all</button><button class="btn btn-ghost btn-sm" data-act="collapse-all">Collapse all</button></div>
@@ -337,6 +341,7 @@
         const n = await UI.prompt('Package name', pkg.name, { title: 'Rename package' });
         if (n) mutateProject(p.id, (x) => { x.phases.find((y) => y.id === phaseId).packages[pi].name = n; });
       } },
+      { label: 'Set targets for package…', fn: () => Forms.planDialog(M.inPackage(p.id, pkgId).sort(U.byKey('title')).map((s) => s.id), 'Set targets: ' + pkg.name) },
       { label: 'Duplicate package…', fn: () => duplicatePackageDialog(p, phaseId, pkgId) },
       { label: 'Save as template…', fn: async () => {
         const n = await UI.prompt('Template name', pkg.name, { title: 'Save package as template' });
@@ -461,6 +466,7 @@
         const pkgId = pkEl && pkEl.dataset.pkg;
         switch (act) {
           case 'edit-project': return editProject(p2);
+          case 'proj-timeline': UI.setPref('tl', { ...(UI.prefs.tl || {}), projectId: p2.id }); return App.go('timeline');
           case 'proj-menu': return projMenu(p2, b);
           case 'add-phase': return addPhase(p2);
           case 'proj-add-sub': return App.quickAdd({ projectId: p2.id });

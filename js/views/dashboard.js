@@ -51,6 +51,8 @@
     const nextWeek = withAgency.filter((r) => inRange(r, nwk, nwkEnd)).sort((a, b) => U.cmp(a.d.due, b.d.due));
     const nextActs = open.filter((r) => r.d.nextDue != null && r.d.nextDue <= 7).sort((a, b) => a.d.nextDue - b.d.nextDue);
 
+    const late = open.filter((r) => { const f = Sched.get(r.s); return f.variance != null && f.variance > 0; }).sort((a, b) => Sched.get(b.s).variance - Sched.get(a.s).variance);
+    const approvals = open.map((r) => ({ ...r, f: Sched.get(r.s) })).filter((r) => r.f.approval && r.f.approval <= U.addDays(today, 30)).sort((a, b) => U.cmp(a.f.approval, b.f.approval));
     const projects = Store.projects(false);
     const pid = UI.prefs.dashProject || '';
 
@@ -106,6 +108,8 @@
         <div class="dash-col">
           ${panel('Due back this week', U.fmtD(wk) + ' – ' + U.fmtD(wkEnd), thisWeek, (r) => liHtml(r, U.fmtD(r.d.due) + (r.d.overdue ? ' · late' : ''), r.d.overdue ? 'txt-over' : ''), { empty: 'No reviews due back this week.', limit: 10 })}
           ${panel('Due back next week', U.fmtD(nwk) + ' – ' + U.fmtD(nwkEnd), nextWeek, (r) => liHtml(r, U.fmtD(r.d.due)), { empty: 'No reviews due back next week.', limit: 10 })}
+          ${panel('Forecast later than target', 'Biggest slip first', late, (r) => liHtml(r, 'target ' + U.fmtD(Sched.get(r.s).plan.approval) + ' · +' + Sched.get(r.s).variance + 'd', 'txt-over'), { empty: 'Every forecast is on or ahead of its target. Set targets in a submittal or on the Timeline.', flag: 'late' })}
+          ${panel('Approvals forecast in the next 30 days', 'From actual review dates and your planned cycles', approvals, (r) => liHtml(r, U.fmtD(r.f.approval)), { empty: 'No approvals forecast in the next 30 days.', limit: 8 })}
           ${panel('Next actions', 'Due within 7 days or past due', nextActs, (r) => liHtml(r, U.esc(r.s.nextAction || 'Next action') + ' · ' + U.fmtD(r.s.nextActionDate), r.d.nextDue < 0 ? 'txt-over' : ''), { empty: 'No dated next actions in the coming week.', flag: 'next7' })}
           ${dist}
         </div>
